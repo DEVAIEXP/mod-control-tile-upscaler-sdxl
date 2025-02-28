@@ -8,7 +8,7 @@
 
 If you like the project, please give me a star! ⭐
 
-[![GitHub](https://img.shields.io/github/stars/DEVAIEXP/mod-control-tile-upscaler-sdxl?style=social)](https://github.com/DEVAIEXP/mod-control-tile-upscaler-sdxl)
+[![GitHub](https://img.shields.io/github/stars/DEVAIEXP/mod-control-tile-upscaler-sdxl?style=socia)](https://github.com/DEVAIEXP/mod-control-tile-upscaler-sdxl)
 <a href='https://huggingface.co/spaces/elismasilva/mod-control-tile-upscaler-sdxl'><img src='https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue'></a><br>
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S71ACXMR)
 
