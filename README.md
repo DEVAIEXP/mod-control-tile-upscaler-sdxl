@@ -13,7 +13,7 @@ If you like the project, please give me a star! ⭐
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S6S71ACXMR)
 
 <div style="text-align: center;">
-  <img src="https://huggingface.co/datasets/DEVAIEXP/assets/resolve/main/mod_sdxl_sr_app.PNG" width="1536">
+  <img src="https://huggingface.co/datasets/DEVAIEXP/assets/resolve/main/mod_app.png" width="1536">
 </div>
 
 ## About

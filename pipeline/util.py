@@ -18,8 +18,6 @@ import cv2
 import numpy as np
 import torch
 from PIL import Image
-from gradio.themes import Default
-import gradio as gr
 
 
 MAX_SEED = np.iinfo(np.int32).max
@@ -83,63 +81,6 @@ SAMPLERS = {
     "TCD": ("TCDScheduler", {}),
     "TCD trailing": ("TCDScheduler", {"timestep_spacing": "trailing"}),
 }
-
-class Platinum(Default): 
-    def __init__(
-        self,                
-    ):
-        super().__init__(
-            font = (
-                gr.themes.GoogleFont("Karla"), 'Segoe UI Emoji', 'Public Sans', 'system-ui', 'sans-serif'
-            )
-        )
-        self.name = "Diffusers"
-        super().set(                  
-            block_border_width='1px',
-            block_border_width_dark='1px',            
-            block_info_text_size='13px',
-            block_info_text_weight='450',
-            block_info_text_color='#474a50',
-            block_label_background_fill='*background_fill_secondary',
-            block_label_text_color='*neutral_700',
-            block_title_text_color='black',
-            block_title_text_weight='600',
-            block_background_fill='#fcfcfc',
-            body_background_fill='*background_fill_secondary',
-            body_text_color='black',
-            background_fill_secondary='#f8f8f8',
-            border_color_accent='*primary_50',
-            border_color_primary='#ededed',
-            color_accent='#7367f0',
-            color_accent_soft='#fcfcfc',            
-            panel_background_fill='#fcfcfc',
-            section_header_text_weight='600',
-            checkbox_background_color='*background_fill_secondary',
-            input_background_fill='white',        
-            input_placeholder_color='*neutral_300',
-            loader_color = '#7367f0',        
-            slider_color='#7367f0',
-            table_odd_background_fill='*neutral_100',
-            button_small_radius='*radius_sm',
-            button_primary_background_fill='linear-gradient(to bottom right, #7367f0, #9c93f4)',            
-            button_primary_background_fill_hover='linear-gradient(to bottom right, #9c93f4, #9c93f4)',
-            button_primary_background_fill_hover_dark='linear-gradient(to bottom right, #5e50ee, #5e50ee)',
-            button_cancel_background_fill='linear-gradient(to bottom right, #fc0379, #ff88ac)',
-            button_cancel_background_fill_dark='linear-gradient(to bottom right, #dc2626, #b91c1c)',
-            button_cancel_background_fill_hover='linear-gradient(to bottom right, #f592c9, #f592c9)',
-            button_cancel_background_fill_hover_dark='linear-gradient(to bottom right, #dc2626, #dc2626)',
-            button_primary_border_color='#5949ed',
-            button_primary_text_color='white',            
-            button_cancel_text_color='white',
-            button_cancel_text_color_dark='#dc2626',
-            button_cancel_border_color='#f04668',
-            button_cancel_border_color_dark='#dc2626',
-            button_cancel_border_color_hover='#fe6565',
-            button_cancel_border_color_hover_dark='#dc2626',
-            form_gap_width='1px',
-            layout_gap='5px'
-        )
-
 
 def select_scheduler(pipe, selected_sampler):
     import diffusers

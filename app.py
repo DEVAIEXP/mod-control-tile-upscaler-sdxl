@@ -1,12 +1,10 @@
 import torch
-import spaces
 from diffusers import ControlNetUnionModel, AutoencoderKL, UNet2DConditionModel
 import gradio as gr
 
 from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, calculate_overlap
 from pipeline.util import (
     SAMPLERS,
-    Platinum,  
     create_hdr_effect,
     progressive_upscale,
     quantize_8bit,
@@ -35,7 +33,6 @@ pipe.enable_vae_tiling() # << Enable this if you have limited VRAM
 pipe.enable_vae_slicing() # << Enable this if you have limited VRAM
 
 # region functions
-@spaces.GPU
 def predict(
     image,
     prompt,
@@ -99,7 +96,7 @@ def predict(
         tile_gaussian_sigma=float(tile_gaussian_sigma),
         num_inference_steps=num_inference_steps,
     )["images"][0]
-    image.save("result.png")
+    
     return image
 
 
@@ -119,23 +116,18 @@ def select_tile_weighting_method(tile_weighting_method):
 # endregion
 
 css = """
-body {
-    background: linear-gradient(135deg, #F0F0F0, #FFFFFF);
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    color: #333;
+body {    
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;    
     margin: 0;
     padding: 0;
 }
-.gradio-container {
-    background: rgba(255, 255, 255, 0.95);
+.gradio-container {    
     border-radius: 15px;
     padding: 30px 40px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-    margin: 40px 340px;
-    /*max-width: 1200px;*/
+    margin: 40px 340px;    
 }
-.gradio-container h1 {
-    color: #333;
+.gradio-container h1 {    
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 .fillable {
@@ -152,16 +144,13 @@ body {
 #tips_row{    
     padding-left: 20px;
 }
-.sidebar {
-    background: rgba(255, 255, 255, 0.98);
+.sidebar {    
     border-radius: 10px;
     padding: 10px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
-.sidebar .toggle-button {
-    background: linear-gradient(90deg, #7367f0, #9c93f4);
-    border: none;
-    color: #fff;
+.sidebar .toggle-button {    
+    border: none;    
     padding: 12px 24px;
     text-transform: uppercase;
     font-weight: bold;
@@ -177,7 +166,7 @@ body {
 title = """<h1 align="center">MoD ControlNet Tile Upscaler for SDXL🤗</h1>
            <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; overflow:hidden;">
                 <span>This project implements the <a href="https://arxiv.org/pdf/2408.06072">📜 MoD (Mixture-of-Diffusers)</a> tiled diffusion technique and combines it with SDXL's ControlNet Tile process.</span>
-                <span>💻 <b><a href="https://github.com/DEVAIEXP/mod-control-tile-upscaler-sdxl">GitHub Code</a></b>
+                <span>💻 <a href="https://github.com/DEVAIEXP/mod-control-tile-upscaler-sdxl">GitHub Code</a></span>
                 <span>🚀 <b>Controlnet Union Power!</b> Check out the model: <a href="https://huggingface.co/xinsir/controlnet-union-sdxl-1.0">Controlnet Union</a></span>
                 <span>🎨 <b>RealVisXL V5.0 for Stunning Visuals!</b> Explore it here: <a href="https://huggingface.co/SG161222/RealVisXL_V5.0">RealVisXL</a></span>
            </div>
@@ -209,7 +198,7 @@ about = """
 If you have any questions or suggestions, feel free to send your question to <b>contact@devaiexp.com</b>.
 """
 
-with gr.Blocks(css=css, theme=Platinum(), title="MoD ControlNet Tile Upscaler") as app:
+with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upscaler") as app:
     gr.Markdown(title)
     with gr.Row():
         with gr.Column(scale=3):                        
