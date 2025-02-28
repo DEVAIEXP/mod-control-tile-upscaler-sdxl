@@ -109,7 +109,6 @@ Then run the following commands in the terminal:
 
 **Clone repository:**
 ```bash
-git lfs install
 git clone https://github.com/DEVAIEXP/mod-control-tile-upscaler-sdxl.git
 cd mod-control-tile-upscaler-sdxl
 ```
@@ -136,11 +135,10 @@ The following code👇 comes from [infer.py](infer.py). If you want to do quickl
 import torch
 from diffusers import ControlNetUnionModel, AutoencoderKL, UNet2DConditionModel
 from diffusers.utils import load_image
-from pipeline.mixture_upscale import StableDiffusionXLControlTilingPipeline, TileWeightingMethod
+from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, TileWeightingMethod, calculate_overlap
 
 from pipeline.util import (
     SAMPLERS,    
-    calculate_overlap,
     create_hdr_effect,
     progressive_upscale,
     quantize_8bit,
@@ -189,17 +187,18 @@ original_height = image.height
 original_width = image.width
 print(f"Current resolution: H:{original_height} x W:{original_width}")
 
-# Pré-upscale image for tiling
+# Pre-upscale image for tiling
 resolution = 4096
-hdr = 0.0
+hdr = 0.5
 tile_gaussian_sigma = 0.3
 max_tile_size = 1024 # or 1280
-control_image = progressive_upscale(image, resolution)
-control_image = create_hdr_effect(control_image, hdr)
+control_image = create_hdr_effect(image, hdr)
+image = progressive_upscale(image, resolution)
+image = create_hdr_effect(image, hdr)
 
 # Update target height and width
-target_height = control_image.height
-target_width = control_image.width
+target_height = image.height
+target_width = image.width
 print(f"Target resolution: H:{target_height} x W:{target_width}")
 print(f"Applied HDR effect: {True if hdr > 0 else False}")
 
