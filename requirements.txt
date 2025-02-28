@@ -1,0 +1,12 @@
+torch
+peft
+torchsde
+opencv-python
+spaces
+scipy
+gradio==5.15.0
+numpy==1.26.4
+transformers
+accelerate
+diffusers
+fastapi>=0.115.2

@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+mod_tests/
+/.vs
+.vscode/
+.idea/
+venv/
+.venv/
+*.log
+.DS_Store
+.gradio
