@@ -97,6 +97,7 @@ def select_scheduler(pipe, selected_sampler):
 
     return scheduler.from_config(config, **add_kwargs)
 
+
 # This function was copied and adapted from https://huggingface.co/spaces/gokaygokay/TileUpscalerV2, licensed under Apache 2.0.
 def progressive_upscale(input_image, target_resolution, steps=3):
     """
@@ -182,13 +183,11 @@ def create_hdr_effect(original_image, hdr):
 
 
 def torch_gc():
+    gc.collect()
     if torch.cuda.is_available():
         with torch.cuda.device("cuda"):
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
-
-    gc.collect()
-
 
 def quantize_8bit(unet):
     if unet is None:

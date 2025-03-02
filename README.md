@@ -118,7 +118,7 @@ cd mod-control-tile-upscaler-sdxl
 python -m venv venv
 (for windows) .\venv\Scripts\activate
 (for linux) source /venv/bin/activate
-pip install torch==2.5.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 --upgrade
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 --upgrade
 pip install -r requirements.txt
 ```
 

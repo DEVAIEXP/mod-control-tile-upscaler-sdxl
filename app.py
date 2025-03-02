@@ -5,36 +5,65 @@ import gradio as gr
 from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, calculate_overlap
 from pipeline.util import (
     SAMPLERS,
-    create_hdr_effect,
+    create_hdr_effect,    
     progressive_upscale,
     quantize_8bit,
     select_scheduler,
+    torch_gc,
 )
 
 device = "cuda"
 
-# Initialize the models and pipeline
-controlnet = ControlNetUnionModel.from_pretrained(
-    "brad-twinkl/controlnet-union-sdxl-1.0-promax", torch_dtype=torch.float16
-).to(device=device)
-vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device=device)
+MODELS = {"RealVisXL 5 Lightning": "SG161222/RealVisXL_V5.0_Lightning", 
+          "RealVisXL 5": "SG161222/RealVisXL_V5.0"
+         }
 
-model_id = "SG161222/RealVisXL_V5.0"
-pipe = StableDiffusionXLControlNetTileSRPipeline.from_pretrained(
-    model_id, controlnet=controlnet, vae=vae, torch_dtype=torch.float16, use_safetensors=True, variant="fp16"
-).to(device)
+class Pipeline:
+    def __init__(self):
+        self.pipe = None
+        self.controlnet = None
+        self.vae = None
+        self.last_loaded_model = None
 
-unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", variant="fp16", use_safetensors=True)
-quantize_8bit(unet)  # << Enable this if you have limited VRAM
-pipe.unet = unet
+    def load_model(self, model_id):
+        if model_id != self.last_loaded_model:
+            print(f"\n--- Loading model: {model_id} ---")
+            if self.pipe is not None:                
+                self.pipe.to("cpu")                
+                del self.pipe
+                self.pipe = None
+                del self.controlnet
+                self.controlnet = None
+                del self.vae
+                self.vae = None                
+                torch_gc()     
+            
+            self.controlnet = ControlNetUnionModel.from_pretrained(
+                    "brad-twinkl/controlnet-union-sdxl-1.0-promax", torch_dtype=torch.float16
+                ).to(device=device)
+            self.vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device=device)
 
-pipe.enable_model_cpu_offload()  # << Enable this if you have limited VRAM
-pipe.enable_vae_tiling() # << Enable this if you have limited VRAM
-pipe.enable_vae_slicing() # << Enable this if you have limited VRAM
+            self.pipe = StableDiffusionXLControlNetTileSRPipeline.from_pretrained(
+                MODELS[model_id], controlnet=self.controlnet, vae=self.vae, torch_dtype=torch.float16, variant="fp16"
+            ).to(device=device)
 
+            unet = UNet2DConditionModel.from_pretrained(MODELS[model_id], subfolder="unet", variant="fp16", use_safetensors=True)
+            quantize_8bit(unet)  # << Enable this if you have limited VRAM
+            self.pipe.unet = unet
+
+            self.pipe.enable_model_cpu_offload()
+            self.pipe.enable_vae_tiling()
+            self.pipe.enable_vae_slicing()
+            self.last_loaded_model = model_id
+            print(f"Model {model_id} loaded.")
+
+    def __call__(self, *args, **kwargs):
+        return self.pipe(*args, **kwargs)
+      
 # region functions
 def predict(
     image,
+    model_id,
     prompt,
     negative_prompt,
     resolution,
@@ -49,11 +78,13 @@ def predict(
     tile_weighting_method,
     progress=gr.Progress(track_tqdm=True),
 ):
-    global pipe
+    
+    # Load model if changed
+    load_model(model_id)
 
     # Set selected scheduler
     print(f"Using scheduler: {scheduler}...")
-    pipe.scheduler = select_scheduler(pipe, scheduler)
+    pipeline.pipe.scheduler = select_scheduler(pipeline.pipe, scheduler)
 
     # Get current image size
     original_height = image.height
@@ -76,7 +107,7 @@ def predict(
 
     # Image generation
     print("Diffusion kicking in... almost done, coffee's on you!")
-    image = pipe(
+    image = pipeline(
         image=image,
         control_image=control_image,
         control_mode=[6],
@@ -99,10 +130,17 @@ def predict(
     
     return image
 
-
 def clear_result():
     return gr.update(value=None)
 
+def load_model(model_name, on_load=False):
+    global pipeline  # Declare pipeline as global
+    if on_load and 'pipeline' not in globals(): # Prevent reload page
+        pipeline = Pipeline()  # Create pipeline inside the function
+        pipeline.load_model(model_name) # Load the initial model
+    elif pipeline is not None and not on_load:
+        pipeline.load_model(model_name) # Switch model      
+    
 def set_maximum_resolution(max_tile_size, current_value):
     max_scale = 8  # <- you can try increase it to 12x, 16x if you wish!
     maximum_value = max_tile_size * max_scale
@@ -131,7 +169,7 @@ body {
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
 .fillable {
-    width: 95% !important;
+    width: 100% !important;
     max-width: unset !important;
 }
 #examples_container {
@@ -204,7 +242,7 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
         with gr.Column(scale=3):                        
             with gr.Row():
                 with gr.Column():
-                    input_image = gr.Image(type="pil", label="Input Image",sources=["upload"], height=500)
+                    input_image = gr.Image(type="pil", label="Input Image", sources=["upload"], height=500)
                 with gr.Column():
                     result = gr.Image(
                         label="Generated Image", show_label=True, format="png", interactive=False, scale=1, height=500, min_width=670
@@ -233,11 +271,15 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
     with gr.Sidebar(label="Parameters", open=True):
         with gr.Row(elem_id="parameters_row"):
             gr.Markdown("### General parameters")
+            model = gr.Dropdown(
+                label="Model", choices=list(MODELS.keys()), value=list(MODELS.keys())[1], interactive=False
+            )
             tile_weighting_method = gr.Dropdown(
                 label="Tile Weighting Method", choices=["Cosine", "Gaussian"], value="Cosine"
             )
             tile_gaussian_sigma = gr.Slider(label="Gaussian Sigma", minimum=0.05, maximum=1.0, step=0.01, value=0.3, visible=False)
             max_tile_size = gr.Dropdown(label="Max. Tile Size", choices=[1024, 1280], value=1024)
+        with gr.Row():
             resolution = gr.Slider(minimum=128, maximum=8192, value=2048, step=128, label="Resolution")
             num_inference_steps = gr.Slider(minimum=2, maximum=100, value=30, step=1, label="Inference Steps")
             guidance_scale = gr.Slider(minimum=1, maximum=20, value=6, step=0.1, label="Guidance Scale")
@@ -258,6 +300,22 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                 gr.Examples(
                     examples=[
                         [   "./examples/1.jpg",
+                            "RealVisXL 5 Lightning",
+                            prompt.value,
+                            negative_prompt.value,
+                            4096,
+                            0.0,
+                            25,
+                            0.35,
+                            1.0,
+                            0.3,
+                            "LCM",
+                            4,
+                            1024,
+                            "Cosine"
+                        ],
+                        [   "./examples/1.jpg",
+                            "RealVisXL 5",
                             prompt.value,
                             negative_prompt.value,
                             4096,
@@ -272,6 +330,22 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                             "Cosine"
                         ],
                         [   "./examples/2.jpg",
+                            "RealVisXL 5 Lightning",
+                            prompt.value,
+                            negative_prompt.value,
+                            4096,
+                            0.5,
+                            25,
+                            0.35,
+                            1.0,
+                            0.3,
+                            "LCM",
+                            4,
+                            1024,
+                            "Cosine"
+                        ],
+                        [   "./examples/2.jpg",
+                            "RealVisXL 5",                       
                             prompt.value,
                             negative_prompt.value,
                             4096,
@@ -286,6 +360,22 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                             "Cosine"
                         ],
                         [   "./examples/3.jpg",
+                            "RealVisXL 5 Lightning",
+                            prompt.value,
+                            negative_prompt.value,
+                            5120,
+                            0.5,
+                            25,
+                            0.35,
+                            1.0,
+                            0.3,
+                            "LCM",
+                            4,
+                            1280,
+                            "Gaussian"
+                        ],
+                        [   "./examples/3.jpg",
+                            "RealVisXL 5",
                             prompt.value,
                             negative_prompt.value,
                             5120,
@@ -300,6 +390,22 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                             "Gaussian"
                         ],
                         [   "./examples/4.jpg",
+                            "RealVisXL 5 Lightning",
+                            prompt.value,
+                            negative_prompt.value,
+                            8192,
+                            0.1,
+                            25,
+                            0.35,
+                            1.0,
+                            0.3,
+                            "LCM",
+                            4,
+                            1024,
+                            "Gaussian"
+                        ],
+                        [   "./examples/4.jpg",
+                            "RealVisXL 5",
                             prompt.value,
                             negative_prompt.value,
                             8192,
@@ -314,6 +420,22 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                             "Gaussian"
                         ],
                         [   "./examples/5.jpg",
+                            "RealVisXL 5 Lightning",
+                            prompt.value,
+                            negative_prompt.value,
+                            8192,
+                            0.3,
+                            25,
+                            0.35,
+                            1.0,
+                            0.3,
+                            "LCM",
+                            4,
+                            1024,
+                            "Cosine"
+                        ],
+                        [   "./examples/5.jpg",
+                            "RealVisXL 5",
                             prompt.value,
                             negative_prompt.value,
                             8192,
@@ -326,18 +448,19 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                             4,
                             1024,
                             "Cosine"
-                        ],     
+                        ]                        
                     ],
                     inputs=[
                         input_image,
+                        model,
                         prompt,
                         negative_prompt,
                         resolution,
                         hdr,
                         num_inference_steps,
                         denoising_strength,
-                        controlnet_strength,   
-                        tile_gaussian_sigma,                     
+                        controlnet_strength,
+                        tile_gaussian_sigma,
                         scheduler,
                         guidance_scale,
                         max_tile_size,
@@ -349,7 +472,7 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
                 )
 
     max_tile_size.select(fn=set_maximum_resolution, inputs=[max_tile_size, resolution], outputs=resolution)
-    tile_weighting_method.select(fn=select_tile_weighting_method, inputs=tile_weighting_method, outputs=tile_gaussian_sigma)
+    tile_weighting_method.change(fn=select_tile_weighting_method, inputs=tile_weighting_method, outputs=tile_gaussian_sigma)
     generate_button.click(
         fn=clear_result,
         inputs=None,
@@ -358,6 +481,7 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
         fn=predict,
         inputs=[
             input_image,
+            model,
             prompt,
             negative_prompt,
             resolution,
@@ -375,4 +499,5 @@ with gr.Blocks(css=css, theme=gr.themes.Ocean(), title="MoD ControlNet Tile Upsc
         show_progress="full"
     )
     gr.Markdown(about)
+    app.load(fn=load_model, inputs=[model, gr.State(value=True)], outputs=None, concurrency_limit=1) # Load initial model on app load
 app.launch(share=False)
