@@ -1,4 +1,4 @@
-# Copyright 2025 DEVAIEXP and The HuggingFace Team. All rights reserved.
+# Copyright 2025 The DEVAIEXP Team and The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,10 +57,12 @@ from diffusers.utils import (
 from diffusers.utils.import_utils import is_invisible_watermark_available
 from diffusers.utils.torch_utils import is_compiled_module, randn_tensor
 
+
 if is_invisible_watermark_available():
     from diffusers.pipelines.stable_diffusion_xl.watermark import StableDiffusionXLWatermarker
 
 from diffusers.utils import is_torch_xla_available
+
 
 if is_torch_xla_available():
     import torch_xla.core.xla_model as xm
@@ -74,90 +76,95 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 EXAMPLE_DOC_STRING = """
     Examples:
-        ```py
-        import torch
-        from diffusers import ControlNetUnionModel, AutoencoderKL, UniPCMultistepScheduler
-        from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, TileWeightingMethod, calculate_overlap
-        from diffusers.utils import load_image
-        from PIL import Image
+        ``` import torch
+            from diffusers import DiffusionPipeline, ControlNetUnionModel, AutoencoderKL, UniPCMultistepScheduler, UNet2DConditionModel
+            from diffusers.utils import load_image
+            from PIL import Image
 
-        device = "cuda"
+            device = "cuda"
 
-        # Initialize the models and pipeline
-        controlnet = ControlNetUnionModel.from_pretrained(
-            "brad-twinkl/controlnet-union-sdxl-1.0-promax", torch_dtype=torch.float16
-        ).to(device=device)
-        vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device=device)
+            # Initialize the models and pipeline
+            controlnet = ControlNetUnionModel.from_pretrained(
+                "brad-twinkl/controlnet-union-sdxl-1.0-promax", torch_dtype=torch.float16
+            ).to(device=device)
+            vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device=device)
 
-        model_id = "SG161222/RealVisXL_V5.0"
-        pipe = StableDiffusionXLControlNetTileSRPipeline.from_pretrained(
-            model_id, controlnet=controlnet, vae=vae, torch_dtype=torch.float16, use_safetensors=True, variant="fp16"
-        ).to(device)
+            model_id = "SG161222/RealVisXL_V5.0"
+            pipe = DiffusionPipeline.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16,
+                vae=vae,
+                controlnet=controlnet,
+                custom_pipeline="mod_controlnet_tile_sr_sdxl",
+                use_safetensors=True,
+                variant="fp16",
+            ).to(device)
 
-        pipe.enable_model_cpu_offload()  # << Enable this if you have limited VRAM
-        pipe.enable_vae_tiling() # << Enable this if you have limited VRAM
-        pipe.enable_vae_slicing() # << Enable this if you have limited VRAM
+            unet = UNet2DConditionModel.from_pretrained(model_id, subfolder="unet", variant="fp16", use_safetensors=True)
 
-        # Set selected scheduler
-        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+            #pipe.enable_model_cpu_offload()  # << Enable this if you have limited VRAM
+            pipe.enable_vae_tiling() # << Enable this if you have limited VRAM
+            pipe.enable_vae_slicing() # << Enable this if you have limited VRAM
 
-        # Load image
-        control_image = load_image("https://huggingface.co/datasets/DEVAIEXP/assets/resolve/main/1.jpg")
-        original_height = control_image.height
-        original_width = control_image.width
-        print(f"Current resolution: H:{original_height} x W:{original_width}")
+            # Set selected scheduler
+            pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
 
-        # Pre-upscale image for tiling
-        resolution = 4096
-        tile_gaussian_sigma = 0.3
-        max_tile_size = 1024 # or 1280
+            # Load image
+            control_image = load_image("https://huggingface.co/datasets/DEVAIEXP/assets/resolve/main/1.jpg")
+            original_height = control_image.height
+            original_width = control_image.width
+            print(f"Current resolution: H:{original_height} x W:{original_width}")
 
-        current_size = max(control_image.size)
-        scale_factor = max(2, resolution / current_size)
-        new_size = (int(control_image.width * scale_factor), int(control_image.height * scale_factor))
-        image = control_image.resize(new_size, Image.LANCZOS)
+            # Pre-upscale image for tiling
+            resolution = 4096
+            tile_gaussian_sigma = 0.3
+            max_tile_size = 1024 # or 1280
 
-        # Update target height and width
-        target_height = image.height
-        target_width = image.width
-        print(f"Target resolution: H:{target_height} x W:{target_width}")
+            current_size = max(control_image.size)
+            scale_factor = max(2, resolution / current_size)
+            new_size = (int(control_image.width * scale_factor), int(control_image.height * scale_factor))
+            image = control_image.resize(new_size, Image.LANCZOS)
 
-        # Calculate overlap size
-        normal_tile_overlap, border_tile_overlap = calculate_overlap(target_width, target_height)
+            # Update target height and width
+            target_height = image.height
+            target_width = image.width
+            print(f"Target resolution: H:{target_height} x W:{target_width}")
 
-        # Set other params
-        tile_weighting_method = TileWeightingMethod.COSINE.value
-        guidance_scale = 4
-        num_inference_steps = 35
-        denoising_strenght = 0.65
-        controlnet_strength = 1.0
-        prompt = "high-quality, noise-free edges, high quality, 4k, hd, 8k"
-        negative_prompt = "blurry, pixelated, noisy, low resolution, artifacts, poor details"
+            # Calculate overlap size
+            normal_tile_overlap, border_tile_overlap = pipe.calculate_overlap(target_width, target_height)
 
-        # Image generation
-        control_image = pipe(
-            image=image,
-            control_image=control_image,
-            control_mode=[6],
-            controlnet_conditioning_scale=float(controlnet_strength),
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            normal_tile_overlap=normal_tile_overlap,
-            border_tile_overlap=border_tile_overlap,
-            height=target_height,
-            width=target_width,
-            original_size=(original_width, original_height),
-            target_size=(target_width, target_height),
-            guidance_scale=guidance_scale,        
-            strength=float(denoising_strenght),
-            tile_weighting_method=tile_weighting_method,
-            max_tile_size=max_tile_size,
-            tile_gaussian_sigma=float(tile_gaussian_sigma),
-            num_inference_steps=num_inference_steps,
-        )["images"][0]
+            # Set other params
+            tile_weighting_method = pipe.TileWeightingMethod.COSINE.value
+            guidance_scale = 4
+            num_inference_steps = 35
+            denoising_strenght = 0.65
+            controlnet_strength = 1.0
+            prompt = "high-quality, noise-free edges, high quality, 4k, hd, 8k"
+            negative_prompt = "blurry, pixelated, noisy, low resolution, artifacts, poor details"
+
+            # Image generation
+            generated_image = pipe(
+                image=image,
+                control_image=control_image,
+                control_mode=[6],
+                controlnet_conditioning_scale=float(controlnet_strength),
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                normal_tile_overlap=normal_tile_overlap,
+                border_tile_overlap=border_tile_overlap,
+                height=target_height,
+                width=target_width,
+                original_size=(original_width, original_height),
+                target_size=(target_width, target_height),
+                guidance_scale=guidance_scale,
+                strength=float(denoising_strenght),
+                tile_weighting_method=tile_weighting_method,
+                max_tile_size=max_tile_size,
+                tile_gaussian_sigma=float(tile_gaussian_sigma),
+                num_inference_steps=num_inference_steps,
+            )["images"][0]
         ```
 """
-
 
 # This function was copied and adapted from https://huggingface.co/spaces/gokaygokay/TileUpscalerV2, licensed under Apache 2.0.
 def _adaptive_tile_size(image_size, base_tile_size=512, max_tile_size=1280):
@@ -255,32 +262,6 @@ def retrieve_latents(
         return encoder_output.latents
     else:
         raise AttributeError("Could not access latents of provided encoder_output")
-
-def calculate_overlap(width, height, base_overlap=128):
-    """
-    Calculates dynamic overlap based on the image's aspect ratio.
-
-    Args:
-        width (int): Width of the image in pixels.
-        height (int): Height of the image in pixels.
-        base_overlap (int, optional): Base overlap value in pixels. Defaults to 128.
-
-    Returns:
-        tuple: A tuple containing:
-            - row_overlap (int): Overlap between tiles in consecutive rows.
-            - col_overlap (int): Overlap between tiles in consecutive columns.
-    """
-    ratio = height / width
-    if ratio < 1:  # Image is wider than tall
-        return base_overlap // 2, base_overlap
-    else:  # Image is taller than wide
-        return base_overlap, base_overlap * 2
-    
-class TileWeightingMethod(Enum):
-        """Mode in which the tile weights will be generated"""
-
-        COSINE = "Cosine"
-        GAUSSIAN = "Gaussian"
 
 class StableDiffusionXLControlNetTileSRPipeline(
     DiffusionPipeline,
@@ -392,6 +373,32 @@ class StableDiffusionXLControlNetTileSRPipeline(
         self.register_to_config(force_zeros_for_empty_prompt=force_zeros_for_empty_prompt)
         self.register_to_config(requires_aesthetics_score=requires_aesthetics_score)
 
+    def calculate_overlap(self, width, height, base_overlap=128):
+        """
+        Calculates dynamic overlap based on the image's aspect ratio.
+
+        Args:
+            width (int): Width of the image in pixels.
+            height (int): Height of the image in pixels.
+            base_overlap (int, optional): Base overlap value in pixels. Defaults to 128.
+
+        Returns:
+            tuple: A tuple containing:
+                - row_overlap (int): Overlap between tiles in consecutive rows.
+                - col_overlap (int): Overlap between tiles in consecutive columns.
+        """
+        ratio = height / width
+        if ratio < 1:  # Image is wider than tall
+            return base_overlap // 2, base_overlap
+        else:  # Image is taller than wide
+            return base_overlap, base_overlap * 2
+
+    class TileWeightingMethod(Enum):
+            """Mode in which the tile weights will be generated"""
+
+            COSINE = "Cosine"
+            GAUSSIAN = "Gaussian"
+
     # Copied from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl.StableDiffusionXLPipeline.encode_prompt
     def encode_prompt(
         self,
@@ -452,7 +459,7 @@ class StableDiffusionXLControlNetTileSRPipeline(
                 the output of the pre-final layer will be used for computing the prompt embeddings.
         """
         device = device or self._execution_device
-        
+
         # set lora scale so that monkey patched LoRA
         # function of text encoder can correctly access it
         if lora_scale is not None and isinstance(self, StableDiffusionXLLoraLoaderMixin):
@@ -675,48 +682,48 @@ class StableDiffusionXLControlNetTileSRPipeline(
         if strength < 0 or strength > 1:
             raise ValueError(f"The value of strength should in [0.0, 1.0] but is {strength}")
         if num_inference_steps is None:
-            raise ValueError("`num_inference_steps` cannot be None.")        
+            raise ValueError("`num_inference_steps` cannot be None.")
         elif not isinstance(num_inference_steps, int) or num_inference_steps <= 0:
             raise ValueError(
                 f"`num_inference_steps` has to be a positive integer but is {num_inference_steps} of type"
                 f" {type(num_inference_steps)}."
             )
         if normal_tile_overlap is None:
-            raise ValueError("`normal_tile_overlap` cannot be None.")        
+            raise ValueError("`normal_tile_overlap` cannot be None.")
         elif not isinstance(normal_tile_overlap, int) or normal_tile_overlap < 64:
             raise ValueError(
                 f"`normal_tile_overlap` has to be greater than 64 but is {normal_tile_overlap} of type"
                 f" {type(normal_tile_overlap)}."
             )
         if border_tile_overlap is None:
-            raise ValueError("`border_tile_overlap` cannot be None.")        
+            raise ValueError("`border_tile_overlap` cannot be None.")
         elif not isinstance(border_tile_overlap, int) or border_tile_overlap < 128:
             raise ValueError(
                 f"`border_tile_overlap` has to be greater than 128 but is {border_tile_overlap} of type"
                 f" {type(border_tile_overlap)}."
             )
         if max_tile_size is None:
-            raise ValueError("`max_tile_size` cannot be None.")        
+            raise ValueError("`max_tile_size` cannot be None.")
         elif not isinstance(max_tile_size, int) or max_tile_size not in(1024, 1280):
             raise ValueError(
                 f"`max_tile_size` has to be in 1024 or 1280 but is {max_tile_size} of type"
                 f" {type(max_tile_size)}."
-            )     
+            )
         if tile_gaussian_sigma is None:
-            raise ValueError("`tile_gaussian_sigma` cannot be None.")        
+            raise ValueError("`tile_gaussian_sigma` cannot be None.")
         elif not isinstance(tile_gaussian_sigma, float) or tile_gaussian_sigma <= 0:
             raise ValueError(
                 f"`tile_gaussian_sigma` has to be a positive float but is {tile_gaussian_sigma} of type"
                 f" {type(tile_gaussian_sigma)}."
             )
         if tile_weighting_method is None:
-            raise ValueError("`tile_weighting_method` cannot be None.")        
-        elif not isinstance(tile_weighting_method, str) or tile_weighting_method not in [t.value for t in TileWeightingMethod]:
+            raise ValueError("`tile_weighting_method` cannot be None.")
+        elif not isinstance(tile_weighting_method, str) or tile_weighting_method not in [t.value for t in self.TileWeightingMethod]:
             raise ValueError(
-                f"`tile_weighting_method` has to be a string in ({[t.value for t in TileWeightingMethod]}) but is {tile_weighting_method} of type"
+                f"`tile_weighting_method` has to be a string in ({[t.value for t in self.TileWeightingMethod]}) but is {tile_weighting_method} of type"
                 f" {type(tile_weighting_method)}."
             )
-        
+
         # Check `image`
         is_compiled = hasattr(F, "scaled_dot_product_attention") and isinstance(
             self.controlnet, torch._dynamo.eval_frame.OptimizedModule
@@ -1122,7 +1129,7 @@ class StableDiffusionXLControlNetTileSRPipeline(
             grid_cols = int(np.ceil((width - normal_tile_overlap) / (tile_width - normal_tile_overlap)))
 
         return grid_rows, grid_cols
-    
+
     def prepare_tiles(
         self,
         grid_rows,
@@ -1163,7 +1170,7 @@ class StableDiffusionXLControlNetTileSRPipeline(
                 - tile_row_overlaps (np.ndarray): Array of row overlaps for each tile.
                 - tile_col_overlaps (np.ndarray): Array of column overlaps for each tile.
         """
-    
+
         # Create arrays to store dynamic overlaps and weights
         tile_row_overlaps = np.full((grid_rows, grid_cols), normal_tile_overlap)
         tile_col_overlaps = np.full((grid_rows, grid_cols), normal_tile_overlap)
@@ -1197,7 +1204,7 @@ class StableDiffusionXLControlNetTileSRPipeline(
                     sigma = tile_sigma * 1.2
 
                 # Calculate weights for the current tile
-                if tile_weighting_method == TileWeightingMethod.COSINE.value:
+                if tile_weighting_method == self.TileWeightingMethod.COSINE.value:
                     tile_weights[row, col] = self._generate_cosine_weights(
                         tile_width=current_tile_width,
                         tile_height=current_tile_height,
@@ -1452,7 +1459,7 @@ class StableDiffusionXLControlNetTileSRPipeline(
         original_size = original_size or (height, width)
         target_size = target_size or (height, width)
         negative_original_size = negative_original_size or original_size
-        negative_target_size = negative_target_size or target_size        
+        negative_target_size = negative_target_size or target_size
         control_type = [0 for _ in range(num_control_type)]
         control_type = torch.Tensor(control_type)
         self._guidance_scale = guidance_scale
@@ -1486,9 +1493,9 @@ class StableDiffusionXLControlNetTileSRPipeline(
 
         # 2 Get tile width and tile height size
         tile_width, tile_height = _adaptive_tile_size((width, height), max_tile_size=max_tile_size)
-        
-        # 2.1 Calculate the number of tiles needed 
-        grid_rows, grid_cols = self._get_num_tiles(height, width, tile_height, tile_width, normal_tile_overlap, border_tile_overlap)      
+
+        # 2.1 Calculate the number of tiles needed
+        grid_rows, grid_cols = self._get_num_tiles(height, width, tile_height, tile_width, normal_tile_overlap, border_tile_overlap)
 
         # 2.2 Expand prompt to number of tiles
         if not isinstance(prompt, list):

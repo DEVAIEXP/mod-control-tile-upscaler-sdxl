@@ -1,10 +1,9 @@
 import torch
 from diffusers import ControlNetUnionModel, AutoencoderKL, UNet2DConditionModel
 from diffusers.utils import load_image
-from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, TileWeightingMethod, calculate_overlap
+from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline
 
 from pipeline.util import (
-    SAMPLERS,
     create_hdr_effect,
     progressive_upscale,
     quantize_8bit,
@@ -58,10 +57,10 @@ print(f"Target resolution: H:{target_height} x W:{target_width}")
 print(f"Applied HDR effect: {True if hdr > 0 else False}")
 
 # Calculate overlap size
-normal_tile_overlap, border_tile_overlap = calculate_overlap(target_width, target_height)
+normal_tile_overlap, border_tile_overlap = pipe.calculate_overlap(target_width, target_height)
 
 # Set other params
-tile_weighting_method = TileWeightingMethod.COSINE.value
+tile_weighting_method = pipe.TileWeightingMethod.COSINE.value
 guidance_scale = 4
 num_inference_steps = 35
 denoising_strenght = 0.65

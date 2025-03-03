@@ -2,7 +2,7 @@ import torch
 from diffusers import ControlNetUnionModel, AutoencoderKL, UNet2DConditionModel
 import gradio as gr
 
-from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, calculate_overlap
+from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline
 from pipeline.util import (
     SAMPLERS,
     create_hdr_effect,    
@@ -103,11 +103,11 @@ def predict(
     print(f"Applied HDR effect: {True if hdr > 0 else False}")
 
     # Calculate overlap size
-    normal_tile_overlap, border_tile_overlap = calculate_overlap(target_width, target_height)
+    normal_tile_overlap, border_tile_overlap = pipeline.pipe.calculate_overlap(target_width, target_height)
 
     # Image generation
     print("Diffusion kicking in... almost done, coffee's on you!")
-    image = pipeline(
+    generated_image = pipeline(
         image=image,
         control_image=control_image,
         control_mode=[6],
@@ -128,7 +128,7 @@ def predict(
         num_inference_steps=num_inference_steps,
     )["images"][0]
     
-    return image
+    return generated_image
 
 def clear_result():
     return gr.update(value=None)
