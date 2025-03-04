@@ -135,10 +135,9 @@ The following code👇 comes from [infer.py](infer.py). If you want to do quickl
 import torch
 from diffusers import ControlNetUnionModel, AutoencoderKL, UNet2DConditionModel
 from diffusers.utils import load_image
-from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline, TileWeightingMethod, calculate_overlap
+from pipeline.mod_controlnet_tile_sr_sdxl import StableDiffusionXLControlNetTileSRPipeline
 
 from pipeline.util import (
-    SAMPLERS,    
     create_hdr_effect,
     progressive_upscale,
     quantize_8bit,
@@ -147,14 +146,14 @@ from pipeline.util import (
 
 device = "cuda"
 
-# initialize the models and pipeline
+# Initialize the models and pipeline
 controlnet = ControlNetUnionModel.from_pretrained(
     "brad-twinkl/controlnet-union-sdxl-1.0-promax", torch_dtype=torch.float16
 ).to(device=device)
 vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to(device=device)
 
 model_id = "SG161222/RealVisXL_V5.0"
-pipe = StableDiffusionXLControlTilingPipeline.from_pretrained(
+pipe = StableDiffusionXLControlNetTileSRPipeline.from_pretrained(
     model_id, controlnet=controlnet, vae=vae, torch_dtype=torch.float16, use_safetensors=True, variant="fp16"
 ).to(device)
 ````
@@ -203,10 +202,10 @@ print(f"Target resolution: H:{target_height} x W:{target_width}")
 print(f"Applied HDR effect: {True if hdr > 0 else False}")
 
 # Calculate overlap size
-normal_tile_overlap, border_tile_overlap = calculate_overlap(target_width, target_height)
+normal_tile_overlap, border_tile_overlap = pipe.calculate_overlap(target_width, target_height)
 
 # Set other params
-tile_weighting_method = TileWeightingMethod.COSINE.value
+tile_weighting_method = pipe.TileWeightingMethod.COSINE.value
 guidance_scale = 4
 num_inference_steps = 35
 denoising_strenght = 0.65
