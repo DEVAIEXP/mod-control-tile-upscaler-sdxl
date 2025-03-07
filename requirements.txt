@@ -4,7 +4,7 @@ torchsde
 opencv-python
 spaces
 scipy
-gradio==5.15.0
+gradio==5.20.1
 numpy==1.26.4
 transformers
 accelerate

@@ -152,7 +152,6 @@ def select_tile_weighting_method(tile_weighting_method):
     return gr.update(visible=True if tile_weighting_method=="Gaussian" else False)
 
 # endregion
-
 css = """
 body {    
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;    
@@ -188,6 +187,7 @@ body {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 .sidebar .toggle-button {    
+    background: linear-gradient(90deg, #34d399, #10b981) !important;
     border: none;    
     padding: 12px 24px;
     text-transform: uppercase;
@@ -231,6 +231,7 @@ Let's compare our method with conventional ControlNet Tile upscaling:
 """
 
 about = """
+
 📧 **Contact**
 <br>
 If you have any questions or suggestions, feel free to send your question to <b>contact@devaiexp.com</b>.
