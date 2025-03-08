@@ -172,7 +172,7 @@ pipe.enable_vae_tiling()
 pipe.enable_vae_slicing()
 ````
 
-Set the scheduler. See **SAMPLERS** variable keys list on [util.py](pipeline/util.py#L26) file. 
+Set the scheduler. See **SAMPLERS** variable keys list on [util.py](pipeline/util.py#L24) file. 
 ````python
 # Set selected scheduler
 scheduler="UniPC" #<--set the key name here

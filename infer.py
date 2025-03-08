@@ -32,7 +32,7 @@ pipe.enable_vae_tiling() # << Enable this if you have limited VRAM
 pipe.enable_vae_slicing() # << Enable this if you have limited VRAM
 
 # Set selected scheduler
-scheduler="UniPC" #<-- See samples keys list on SAMPLERS variable
+scheduler="UniPC" #<-- See **SAMPLERS** variable keys list on [util.py](pipeline/util.py#L26) file. 
 pipe.scheduler = select_scheduler(pipe, scheduler)
 
 # Load image
